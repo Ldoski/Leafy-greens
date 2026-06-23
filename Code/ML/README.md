@@ -21,8 +21,8 @@ Train: Batches 1 + 3 (670 samples). Test: Batch 4 (317 samples). Batch 5 (378 sa
 ### 2. `aifes/train_model_NIR.py`
 
 Reads the CSVs from step 1. Trains the 3-class freshness model (Input(10) → Dense(16, ReLU) → Dense(3, Softmax), 227 weights). Exports:
-- `aifes/output_nir/aifes_weights_nir.h` — AIfES float32 weight array for the ESP32
-- `tflite/tflm_model_nir.h` — TFLite Micro INT8 model for the ESP32
+- `aifes/output_nir/aifes_weights_nir.h` AIfES float32 weight array for the ESP32
+- `tflite/tflm_model_nir.h` TFLite Micro INT8 model for the ESP32
 
 Results: AIfES 67.8% accuracy, 74.7 µs/inference. TFLite Micro 66.9% accuracy, 304.2 µs/inference.
 
@@ -30,7 +30,7 @@ Results: AIfES 67.8% accuracy, 74.7 µs/inference. TFLite Micro 66.9% accuracy, 
 
 Trains a deliberately weak backbone (Batch 1 only) so TinyOL has room to improve on-device. The output layer is left trainable; the hidden layer is frozen during on-device fine-tuning. Exports `tinyol/tinyol_weights.h`.
 
-The backbone is intentionally undertrained — if it were trained on all available batches it would already generalise well and TinyOL would have nothing to learn.
+The backbone is intentionally undertrained if it were trained on all available batches it would already generalise well and TinyOL would have nothing to learn.
 
 ---
 
@@ -47,11 +47,11 @@ The backbone is intentionally undertrained — if it were trained on all availab
 | delta_node1_tvoc | Per-cycle TVOC change, Node 1 |
 | delta_node2_tvoc | Per-cycle TVOC change, Node 2 |
 
-Master node excluded — Spearman |r| < 0.05 with NIR label (ambient air, no spoilage signal). eCO2 excluded — derived from TVOC by SGP30 firmware, saturates within hours.
+Master node excluded Spearman |r| < 0.05 with NIR label (ambient air, no spoilage signal). eCO2 excluded derived from TVOC by SGP30 firmware, saturates within hours.
 
 ## Labels (NIR 855 nm, not an input feature)
 
-Labels are assigned per batch using the AS7341 NIR channel. The NIR range for each batch is split into tertiles: Fresh (0), Aging (1), Degraded (2). NIR is used only for labeling — it is not fed to the model.
+Labels are assigned per batch using the AS7341 NIR channel. The NIR range for each batch is split into tertiles: Fresh (0), Aging (1), Degraded (2). NIR is used only for labeling it is not fed to the model.
 
 ## Outputs
 
@@ -63,4 +63,4 @@ Labels are assigned per batch using the AS7341 NIR channel. The NIR range for ea
 | `tflite/tflm_model_nir.h` | train_model | ESP32 (tflm_inference_nir env) |
 | `tinyol/tinyol_weights.h` | train_backbone | ESP32 (tinyol benchmark) |
 
-The generated `.h` files and CSVs are excluded from git (see `.gitignore`) — re-run the scripts to regenerate them.
+The generated `.h` files and CSVs are excluded from git (see `.gitignore`) re-run the scripts to regenerate them.
