@@ -1,7 +1,7 @@
-# ESP32 Firmware — Setup and Run Guide
+# ESP32 Firmware Setup and Run Guide
 
 This folder contains all firmware for the SmartShelfLife leafy greens system.
-There are four physical nodes — three standard ESP32 dev boards and one ESP32-C3 for the AS7341 sensor PCB.
+There are four physical nodes three standard ESP32 dev boards and one ESP32-C3 for the AS7341 sensor PCB.
 
 ---
 
@@ -9,9 +9,9 @@ There are four physical nodes — three standard ESP32 dev boards and one ESP32-
 
 | Node | Board | Role | Code to flash |
 |---|---|---|---|
-| Node 0 | ESP32 dev board | Master — aggregates data, logs to SD, runs inference | `master_node.cpp` |
-| Node 1 | ESP32 dev board | Slave — reads sensors, sends to master via ESP-NOW | `slave_node.cpp` |
-| Node 2 | ESP32 dev board | Slave — reads sensors, sends to master via ESP-NOW | `slave_node.cpp` |
+| Node 0 | ESP32 dev board | Master aggregates data, logs to SD, runs inference | `master_node.cpp` |
+| Node 1 | ESP32 dev board | Slave reads sensors, sends to master via ESP-NOW | `slave_node.cpp` |
+| Node 2 | ESP32 dev board | Slave reads sensors, sends to master via ESP-NOW | `slave_node.cpp` |
 | Node 3 | ESP32-C3 Dev Module | AS7341 spectral sensor board | `AS7341.cpp` |
 
 Nodes 0, 1, and 2 each carry: DHT22 (temp/humidity), SGP30 (TVOC/eCO2), MQ3 (alcohol gas).
@@ -23,7 +23,7 @@ Node 3 carries only the AS7341 11-channel multispectral sensor.
 
 Follow this order every time you set up a node from scratch:
 
-### Step 1 — Test all sensors first
+### Step 1 Test all sensors first
 Flash `test_all_sensors` to confirm the DHT22, SGP30, and MQ3 are all wired and responding correctly before doing anything else. Fix any hardware issues before proceeding.
 
 ```
@@ -32,16 +32,16 @@ pio run -e test_all_sensors --target upload
 
 Open Serial Monitor at **115200 baud**. You should see live readings from all three sensors. If any sensor reads 0 or NaN, check the wiring.
 
-### Step 2 — Erase NVS
+### Step 2 Erase NVS
 Flash `nvs_erase` to wipe any leftover MQ3 calibration values stored in flash from a previous run. Skip this only if you are sure the NVS is already clean.
 
 ```
 pio run -e nvs_erase --target upload
 ```
 
-Open Serial Monitor at **115200 baud**. Wait for "NVS CLEARED — READY TO USE" before proceeding.
+Open Serial Monitor at **115200 baud**. Wait for "NVS CLEARED READY TO USE" before proceeding.
 
-### Step 3 — Calibrate MQ3
+### Step 3 Calibrate MQ3
 Place the ESP32 in **clean open air** (not inside the chamber, not near the spinach). Flash `mq3_calibration` and let it take 30 samples over ~60 seconds. It measures the MQ3 sensor resistance in clean air (R0) and saves it to NVS. This value is used by the main firmware to convert raw ADC readings into ppm.
 
 ```
@@ -50,7 +50,7 @@ pio run -e mq3_calibration --target upload
 
 Open Serial Monitor at **115200 baud**. Wait for "Calibration complete." before proceeding. The R0 value is printed and saved automatically.
 
-### Step 4 — Flash main firmware
+### Step 4 Flash main firmware
 Flash `slave_node` for Nodes 1 and 2, or `master_node` for Node 0.
 
 ```
@@ -68,7 +68,7 @@ pio run -e slave_node --target upload
 **This board uses an ESP32-C3 Dev Module, not a standard ESP32.**
 
 Before uploading, change the board target in PlatformIO:
-- In `platformio.ini`, the `as7341_test` environment uses `board = esp32dev` by default for the project — for this board you must select **ESP32-C3 Dev Module** in your IDE or change the env board setting.
+- In `platformio.ini`, the `as7341_test` environment uses `board = esp32dev` by default for the project for this board you must select **ESP32-C3 Dev Module** in your IDE or change the env board setting.
 
 In VS Code with PlatformIO: click the board selector at the bottom of the screen and choose **Espressif ESP32-C3 Dev Module** before uploading.
 
@@ -82,7 +82,7 @@ Open Serial Monitor at **115200 baud**. The board waits for a "READ" command fro
 
 ## ML Benchmark Sketches
 
-These are for thesis measurements only — not part of normal data collection.
+These are for thesis measurements only not part of normal data collection.
 
 | Environment | What it does |
 |---|---|
