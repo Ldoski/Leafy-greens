@@ -137,3 +137,9 @@ pyserial, picamera2, lgpio  (or RPi.GPIO on Pi 4)
 ```
 
 **ESP32 (PlatformIO):** libraries are managed by PlatformIO via `platformio.ini`. Build with `pio run -e <environment>`.
+
+---
+
+## Related
+
+- [Thesis-Edge-AI](https://github.com/Ciaranm1999/Thesis-Edge-AI) — companion repo: TinyOL on-device learning for strawberry mould detection on ESP32.
