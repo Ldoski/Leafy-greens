@@ -1,6 +1,6 @@
 # SmartShelfLife Leafy Greens Freshness Sensing
 
-Masters thesis project, Smart Systems Engineering, Hanze University of Applied Sciences.
+Masters project, Smart Systems Engineering, Hanze University of Applied Sciences.
 
 An ESP32-based multi-node sensor system that monitors spinach freshness in real time using gas sensors, environmental sensors, and an AS7341 multispectral sensor. A 3-class freshness classifier (Fresh / Aging / Degraded) runs directly on the ESP32 using AIfES. TinyOL enables on-device fine-tuning without any PC connection.
 
