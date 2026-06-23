@@ -1,6 +1,6 @@
 # Sensor Trial Dashboard
 
-A standalone HTML dashboard for exploring and visualising data from the SmartShelfLife spinach freshness monitoring system. Open `imu.html` in any browser — no server, no install, no internet required after the page loads (Chart.js is pulled from a CDN on first open).
+A standalone HTML dashboard for exploring and visualising data from the SmartShelfLife spinach freshness monitoring system. Open `imu.html` in any browser no server, no install, no internet required after the page loads (Chart.js is pulled from a CDN on first open).
 
 ---
 
@@ -27,19 +27,19 @@ The dashboard has 8 tabs, each covering a different view of the trial data.
 
 The dashboard opens with built-in sample data so you can see all tabs working immediately. To load real data, use the buttons in the top bar.
 
-**Load CSV** — drag or select a CSV export from the trial. The dashboard auto-detects whether it is sensor data or multispectral data by looking at the column headers:
-- If headers contain `415` or `f1`–`f8` with `nm` — treated as AS7341 spectral data, opens Multispectral tab.
-- Otherwise — treated as environmental sensor data (temp, hum, TVOC, eCO2, MQ3), opens Overview tab.
+**Load CSV** drag or select a CSV export from the trial. The dashboard auto-detects whether it is sensor data or multispectral data by looking at the column headers:
+- If headers contain `415` or `f1`–`f8` with `nm` treated as AS7341 spectral data, opens Multispectral tab.
+- Otherwise treated as environmental sensor data (temp, hum, TVOC, eCO2, MQ3), opens Overview tab.
 
 Column name matching is flexible. Node columns are matched on patterns like `node1`, `n1_`, `node_1`; sensor columns on `tvoc`/`voc`, `mq3`/`alcohol`, `temp`/`temperature`, `humid`/`hum`, `eco2`/`co2`. The `master` or `ref` node maps to the outside reference.
 
-**Load Images** — select one or more timelapse photos. Filenames must contain a timestamp in one of these formats for alignment to work:
+**Load Images** select one or more timelapse photos. Filenames must contain a timestamp in one of these formats for alignment to work:
 - `capture_20260604_135110.jpg` (YYYYMMDD_HHMMSS)
 - `capture_2026-06-04_13-51-10.jpg` (YYYY-MM-DD HH-MM-SS)
 
-Images are never uploaded anywhere — they stay in your browser.
+Images are never uploaded anywhere they stay in your browser.
 
-**Reset to sample** — returns to the built-in synthetic dataset.
+**Reset to sample** returns to the built-in synthetic dataset.
 
 ### Exporting charts
 
@@ -67,4 +67,4 @@ Labels are assigned by direction-aware tertiles:
 - The travel range is split into thirds: Fresh (closest to baseline), Aging (middle third), Degraded (furthest from baseline).
 - A 7-point rolling mean is overlaid to smooth noise; the raw NIR is also shown.
 
-The comparison chart below (NIR % change vs NIR/Red ratio % change) shows that both signals track the same degradation direction and timing — this is the justification for using raw NIR alone rather than the ratio.
+The comparison chart below (NIR % change vs NIR/Red ratio % change) shows that both signals track the same degradation direction and timing dgssgedfsdg this is the justification for using raw NIR alone rather than the ratio.
