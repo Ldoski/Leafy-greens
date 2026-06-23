@@ -19,7 +19,7 @@
 | **12. Density distributions** | Histogram density plots for all 10 features across all three classes — complements the boxplots by showing distribution shape. |
 | **12b. Lighting artifacts** | AS7341 clear channel per batch with artifact threshold (1.6x median). Flagged readings shown in red. |
 | **13. NIR zones** | Raw and smoothed NIR per batch, with b1/b2 tertile boundaries marked. Colour bands show which readings fell into which class. |
-| **14. Spectral channels** | All 8 visible AS7341 bands (415–680 nm), NIR, and Clear — all batches overlaid. Clean readings only. |
+| **14. Spectral channels** | All 8 visible AS7341 bands (415–680 nm), NIR, and Clear all batches overlaid. Clean readings only. |
 | **15. Spearman correlation** | Rank-based correlation of each feature vs the NIR label. More appropriate than Pearson for the ordinal 0/1/2 label. Computed on Batches 1 and 3 only. |
 
 ---
