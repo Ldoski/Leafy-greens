@@ -1,6 +1,6 @@
 # Batch Analysis Notebook
 
-`batch_analysis.ipynb` is the exploratory analysis notebook for the SmartShelfLife spinach freshness project. It covers data quality, NIR labeling, spectral behaviour, feature distributions, and feature-label correlation across all experimental batches. It does not train models — that is handled by `ML/aifes/train_model_NIR.py`.
+`batch_analysis.ipynb` is the exploratory analysis notebook for the SmartShelfLife spinach freshness project. It covers data quality, NIR labeling, spectral behaviour, feature distributions, and feature-label correlation across all experimental batches. It does not train models that is handled by `ML/aifes/train_model_NIR.py`.
 
 ---
 
@@ -12,11 +12,11 @@
 | **2. Data quality** | Heatmaps showing missing-value % and TVOC saturation % per batch and per sensor column. eCO2 columns are greyed out (excluded). |
 | **3. eCO2 exclusion** | Time-series of eCO2 from all three nodes across all batches. Shows why it is excluded: saturates at the SGP30 hardware ceiling within hours. |
 | **4. TVOC saturation** | TVOC time-series with the 59,000 ppb saturation ceiling marked. Saturated readings are dotted; valid readings are solid. |
-| **5-8. Sensor time series** | One subplot per batch for temperature, humidity, TVOC, and ethanol (MQ3). Background shading shows the current NIR label zone (green=Fresh, amber=Aging, red=Degraded). Master node shown in grey — it measures ambient air and is excluded from ML. |
+| **5-8. Sensor time series** | One subplot per batch for temperature, humidity, TVOC, and ethanol (MQ3). Background shading shows the current NIR label zone (green=Fresh, amber=Aging, red=Degraded). Master node shown in grey it measures ambient air and is excluded from ML. |
 | **9. Distributions by class** | Boxplots of all 10 ML features grouped by NIR class. Separability between boxes is a quick read on how useful each feature is. |
 | **10. Pearson correlation** | Correlation matrix (all features + label) plus a bar chart of each feature's linear correlation with the NIR label. Computed on the training set (Batches 1 and 3). |
 | **11. Train / Held / Test split** | Sample counts per class for each split. Stacked bar chart shows how batches contribute within each split. |
-| **12. Density distributions** | Histogram density plots for all 10 features across all three classes — complements the boxplots by showing distribution shape. |
+| **12. Density distributions** | Histogram density plots for all 10 features across all three classes complements the boxplots by showing distribution shape. |
 | **12b. Lighting artifacts** | AS7341 clear channel per batch with artifact threshold (1.6x median). Flagged readings shown in red. |
 | **13. NIR zones** | Raw and smoothed NIR per batch, with b1/b2 tertile boundaries marked. Colour bands show which readings fell into which class. |
 | **14. Spectral channels** | All 8 visible AS7341 bands (415–680 nm), NIR, and Clear all batches overlaid. Clean readings only. |
@@ -91,7 +91,7 @@ All figures are saved to `figures/` next to this notebook.
 
 ## Running It
 
-Open in Jupyter and run all cells top to bottom. Cell 1 sets all constants — if you change `TRAIN_BATCHES`, `HELD_BATCHES`, or `TEST_BATCHES` there, the rest of the notebook updates automatically.
+Open in Jupyter and run all cells top to bottom. Cell 1 sets all constants if you change `TRAIN_BATCHES`, `HELD_BATCHES`, or `TEST_BATCHES` there, the rest of the notebook updates automatically.
 
 The notebook expects the batch data to be under:
 ```
@@ -99,5 +99,5 @@ Leafy_Greens_Project/sensor_data/project2_data/Lidl_batches/Lidl_room_temp_batch
 ```
 
 Each batch folder needs two CSVs:
-- `Lidl_sensors_test{N}.csv` — environmental sensor readings with a `timestamp` column
-- `Lidl_multispectral_test{N}.csv` — AS7341 readings with `timestamp`, `nir`, and `clear` columns
+- `Lidl_sensors_test{N}.csv` environmental sensor readings with a `timestamp` column
+- `Lidl_multispectral_test{N}.csv` AS7341 readings with `timestamp`, `nir`, and `clear` columns
