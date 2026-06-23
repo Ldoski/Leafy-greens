@@ -33,18 +33,18 @@ NIR at 855 nm is used as a labeling signal only. It is not a model input.
 Code/
   ESP32/              ESP32 firmware (PlatformIO)
     platformio.ini    Build environments: master_node, slave_node, aifes, tflm, tinyol
-    master_node.cpp        Master node firmware — data aggregation, AIfES inference, UART output
+    master_node.cpp        Master node firmware data aggregation, AIfES inference, UART output
     master_node_live.cpp   Live inference variant with real-time classification output
-    slave_node.cpp         Slave node firmware — sensor reading, ESP-NOW broadcast
-    AS7341.cpp             AS7341 multispectral node firmware — on-demand READ via USB serial
+    slave_node.cpp         Slave node firmware sensor reading, ESP-NOW broadcast
+    AS7341.cpp             AS7341 multispectral node firmware on-demand READ via USB serial
     README.md
 
   ML/                 Python ML pipeline (run in order)
     aifes/
-      prepare_dataset_NIR.py    Step 1 — load batches, label, normalise, export CSVs
-      train_model_NIR.py        Step 2 — train AIfES + TFLite Micro model, export .h files
+      prepare_dataset_NIR.py    Step 1 load batches, label, normalise, export CSVs
+      train_model_NIR.py        Step 2 train AIfES + TFLite Micro model, export .h files
     tinyol/
-      train_tinyol_backbone.py  Step 3 — train weak backbone for TinyOL fine-tuning
+      train_tinyol_backbone.py  Step 3 train weak backbone for TinyOL fine-tuning
     README.md
 
   Raspberry_pi/       Pi data collection service
@@ -52,7 +52,7 @@ Code/
     README.md
 
   Dashboard/          Browser-based data explorer
-    imu.html          Open directly in browser — no server required
+    imu.html          Open directly in browser no server required
     README.md
 
   Analysis/           Pipeline analysis notebook
@@ -79,7 +79,7 @@ python Code/ML/aifes/train_model_NIR.py         # trains AIfES + TFLite Micro mo
 python Code/ML/tinyol/train_tinyol_backbone.py  # trains weak TinyOL backbone
 ```
 
-Input data lives in `sensor_data/project2_data/Lidl_batches/` (not committed — too large).
+Input data lives in `sensor_data/project2_data/Lidl_batches/` (not committed too large).
 
 **10 input features:** node1_temp, node1_hum, node1_tvoc, node1_mq3_ppm, node2_temp, node2_hum, node2_tvoc, node2_mq3_ppm, delta_node1_tvoc, delta_node2_tvoc.
 
@@ -89,7 +89,7 @@ Input data lives in `sensor_data/project2_data/Lidl_batches/` (not committed —
 
 ## Results
 
-### AIfES Float32 — on-device inference (EXP-010)
+### AIfES Float32 on-device inference (EXP-010)
 
 | Metric | Value |
 |---|---|
@@ -142,4 +142,4 @@ pyserial, picamera2, lgpio  (or RPi.GPIO on Pi 4)
 
 ## Related
 
-- [Thesis-Edge-AI](https://github.com/Ciaranm1999/Thesis-Edge-AI) — companion repo: TinyOL on-device learning for strawberry mould detection on ESP32.
+- [Thesis-Edge-AI](https://github.com/Ciaranm1999/Thesis-Edge-AI) companion repo: TinyOL on-device learning for strawberry mould detection on ESP32.
