@@ -1,4 +1,4 @@
-# SmartShelfLife — Leafy Greens Freshness Sensing
+# SmartShelfLife Leafy Greens Freshness Sensing
 
 Masters thesis project, Smart Systems Engineering, Hanze University of Applied Sciences.
 
