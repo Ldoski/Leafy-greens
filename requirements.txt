@@ -1,0 +1,12 @@
+# ML pipeline + analysis notebooks (Code/ML/, Code/Analysis/, Experiments/)
+tensorflow==2.21.0
+numpy==2.2.6
+pandas==2.2.3
+matplotlib==3.10.8
+scipy==1.17.1
+
+# Raspberry Pi data collection (Code/Raspberry_pi/)
+# Install on the Pi only — not needed on a dev machine
+pyserial==3.5
+# picamera2 and lgpio are installed via apt on the Pi, not pip:
+#   sudo apt install -y python3-picamera2 python3-lgpio

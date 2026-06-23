@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Multi-Node Sensor Trial Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel-2: #1c232c; --border: #2a313c; --border-soft: #21262d;
+    --txt: #e6edf3; --txt-dim: #8b949e; --txt-faint: #6e7681;
+    --node1: #a371f7; --node2: #58a6ff; --ref: #8b949e;
+    --s-temp: #f0883e; --s-hum: #39c5cf; --s-voc: #bc8cff; --s-mq3: #f778ba; --s-co2: #3fb950;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--txt); font-family: "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .mono { font-family: "Space Mono", ui-monospace, monospace; }
+  header.topbar { display: flex; align-items: center; gap: 16px; padding: 16px 22px; border-bottom: 1px solid var(--border-soft); background: linear-gradient(180deg, #11161d 0%, var(--bg) 100%); position: sticky; top: 0; z-index: 20; flex-wrap: wrap; }
+  .topbar h1 { font-family: "Space Mono", monospace; font-size: 17px; font-weight: 700; letter-spacing: 0.3px; margin: 0; }
+  .topbar .sub { color: var(--txt-dim); font-size: 12.5px; margin-top: 2px; }
+  .topbar .spacer { flex: 1; }
+  .source-pill { font-family: "Space Mono", monospace; font-size: 11px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--txt-dim); white-space: nowrap; }
+  .source-pill b { color: var(--txt); font-weight: 700; }
+  .upload-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { font-family: "IBM Plex Sans", sans-serif; font-size: 12.5px; font-weight: 500; color: var(--txt); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .btn:hover { border-color: var(--node2); background: var(--panel-2); }
+  .btn.ghost { background: transparent; }
+  input[type=file] { display: none; }
+  nav.tabs { display: flex; gap: 4px; padding: 0 18px; border-bottom: 1px solid var(--border-soft); background: var(--bg); position: sticky; top: 65px; z-index: 15; overflow-x: auto; }
+  .tab { font-family: "Space Mono", monospace; font-size: 12.5px; color: var(--txt-dim); padding: 13px 14px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s, border-color .15s; }
+  .tab:hover { color: var(--txt); }
+  .tab.active { color: var(--txt); border-bottom-color: var(--node1); }
+  main { padding: 20px 22px 60px; max-width: 1400px; margin: 0 auto; }
+  .panel-page { display: none; }
+  .panel-page.active { display: block; }
+  .grid { display: grid; gap: 16px; }
+  .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 980px) { .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; } }
+  .card { position: relative; background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px 16px 14px; }
+  .export-btn { position: absolute; top: 12px; right: 12px; font-family: "Space Mono", monospace; font-size: 10px; color: var(--txt-dim); background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; cursor: pointer; opacity: 0; transition: opacity .15s; z-index: 5; }
+  .card:hover .export-btn { opacity: 1; }
+  .export-btn:hover { color: var(--txt); border-color: var(--node2); background: var(--panel); }
+  .card h3 { margin: 0 0 2px; font-family: "Space Mono", monospace; font-size: 13.5px; font-weight: 700; letter-spacing: 0.2px; }
+  .card .desc { color: var(--txt-dim); font-size: 11.5px; margin: 0 0 12px; line-height: 1.45; }
+  .kpi { background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 16px; }
+  .kpi .label { font-size: 11px; color: var(--txt-dim); text-transform: uppercase; letter-spacing: 0.6px; }
+  .kpi .value { font-family: "Space Mono", monospace; font-size: 26px; font-weight: 700; margin-top: 8px; line-height: 1.1; }
+  .kpi .unit { font-size: 13px; color: var(--txt-dim); margin-left: 4px; }
+  .kpi .meta { font-size: 11px; color: var(--txt-faint); margin-top: 6px; }
+  .kpi .meta .n1 { color: var(--node1); }
+  .kpi .meta .n2 { color: var(--node2); }
+  .kpi .meta .rf { color: var(--ref); }
+  .chart-wrap { position: relative; width: 100%; height: 320px; }
+  .chart-wrap.tall { height: 380px; }
+  .chart-wrap.short { height: 240px; }
+  .chart-wrap canvas { width: 100% !important; height: 100% !important; }
+  .statline { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: 12px; }
+  .statline .item .k { color: var(--txt-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+  .statline .item .v { font-family: "Space Mono", monospace; font-weight: 700; font-size: 15px; margin-top: 3px; }
+  .chips { display: flex; gap: 14px; flex-wrap: wrap; margin: 2px 0 12px; font-size: 11.5px; color: var(--txt-dim); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .chip i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .chip .line { width: 16px; height: 0; border-top: 2px dashed; }
+  table.dq { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.dq th, table.dq td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border-soft); }
+  table.dq th { font-family: "Space Mono", monospace; font-size: 11px; color: var(--txt-dim); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+  table.dq td.num { font-family: "Space Mono", monospace; }
+  .badge { font-family: "Space Mono", monospace; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; display: inline-block; }
+  .badge.ok { color: var(--ok); background: rgba(63,185,80,.12); border: 1px solid rgba(63,185,80,.3); }
+  .badge.warn { color: var(--warn); background: rgba(210,153,34,.12); border: 1px solid rgba(210,153,34,.3); }
+  .badge.bad { color: var(--bad); background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.3); }
+  .node-tag { font-family: "Space Mono", monospace; font-weight: 700; }
+  .node-tag.n1 { color: var(--node1); }
+  .node-tag.n2 { color: var(--node2); }
+  .node-tag.rf { color: var(--ref); }
+  .callout { border: 1px solid var(--border-soft); border-left: 3px solid var(--warn); background: rgba(210,153,34,.06); border-radius: 8px; padding: 11px 13px; font-size: 12.5px; line-height: 1.5; color: var(--txt); }
+  .callout.flag-list { border-left-color: var(--bad); background: rgba(248,81,73,.06); }
+  .callout.info { border-left-color: var(--node2); background: rgba(88,166,255,.06); }
+  .callout .mono { color: var(--txt-dim); }
+  .verdict { margin-top: 14px; padding: 13px 15px; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--panel-2); font-size: 13px; line-height: 1.55; }
+  .verdict b { font-family: "Space Mono", monospace; }
+  .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>MULTI-NODE SENSOR TRIAL</h1>
+    <div class="sub">Gas &amp; environmental monitoring, 3 PCB nodes, plus AS7341 multispectral label stream</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="source-pill" id="sourcePill">source: <b>built-in sample</b></div>
+  <div class="upload-group">
+    <label class="btn">Load CSV<input type="file" id="fileInput" accept=".csv,text/csv" /></label>
+    <label class="btn">Load Images<input type="file" id="imgInput" accept="image/*" multiple /></label>
+    <button class="btn ghost" id="resetBtn">Reset to sample</button>
+  </div>
+</header>
+<nav class="tabs" id="tabNav">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="temphum">Temp &amp; Humidity</div>
+  <div class="tab" data-tab="gas">VOC &amp; MQ3 &amp; CO2</div>
+  <div class="tab" data-tab="compare">Node Comparison</div>
+  <div class="tab" data-tab="quality">Data Quality</div>
+  <div class="tab" data-tab="spectral">Multispectral</div>
+  <div class="tab" data-tab="nirlabel">NIR Labeling</div>
+  <div class="tab" data-tab="images">Images</div>
+</nav>
+<main>
+  <section class="panel-page active" id="page-overview">
+    <div class="grid cols-4" id="kpiRow" style="margin-bottom:16px;"></div>
+    <div class="card full">
+      <h3>Combined timeline</h3>
+      <p class="desc">All sensor families at a glance, normalized to 0&ndash;1 per series so the shape of each signal is comparable on one axis. Colored by sensor type. Use the dedicated tabs for real units.</p>
+      <div class="chips" id="overviewChips"></div>
+      <div class="chart-wrap tall"><canvas id="chartOverview"></canvas></div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-temphum">
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Temperature</h3>
+        <p class="desc">All 3 nodes overlaid. Inside nodes (solid) vs reference (dashed grey). Watch for thermal gradient between the two inside nodes.</p>
+        <div class="chips" id="tempChips"></div>
+        <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Relative humidity</h3>
+        <p class="desc">Sealed chamber builds humidity from sample transpiration; reference tracks ambient.</p>
+        <div class="chips" id="humChips"></div>
+        <div class="chart-wrap"><canvas id="chartHum"></canvas></div>
+      </div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-gas">
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>VOC (TVOC)</h3>
+        <!-- <p class="desc">The candidate spoilage signal. Inside nodes should rise and diverge from the flat reference across the trial.</p> -->
+        <div class="chips" id="vocChips"></div>
+        <div class="chart-wrap"><canvas id="chartVoc"></canvas></div>
+        <div class="statline" id="vocStats"></div>
+      </div>
+      <div class="card">
+        <h3>MQ3</h3>
+        <!-- <p class="desc">Cheap alcohol/gas sensor. Reliability is the open question: check whether the trend survives the noise.</p> -->
+        <div class="chips" id="mq3Chips"></div>
+        <div class="chart-wrap"><canvas id="chartMq3"></canvas></div>
+        <div class="statline" id="mq3Stats"></div>
+      </div>
+      <div class="card">
+        <h3>eCO2</h3>
+        <!-- <p class="desc">Estimated CO2 from the gas sensor. Rising eCO2 reflects respiration; the rate of rise is the metabolic signal.</p> -->
+        <div class="chips" id="co2Chips"></div>
+        <div class="chart-wrap"><canvas id="chartCo2"></canvas></div>
+        <div class="statline" id="co2Stats"></div>
+      </div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-compare">
+    <p class="desc" style="margin:0 0 14px; color:var(--txt-dim);">Each inside node minus the outside reference at the same timestamp. This strips ambient drift so only the chamber effect remains. A delta near zero means the inside node is not separating from ambient for that sensor.</p>
+    <div class="grid cols-2">
+      <div class="card"><h3>&Delta; Temperature (inside &minus; ref)</h3><div class="chips" id="dTempChips"></div><div class="chart-wrap short"><canvas id="chartDTemp"></canvas></div></div>
+      <div class="card"><h3>&Delta; Humidity (inside &minus; ref)</h3><div class="chips" id="dHumChips"></div><div class="chart-wrap short"><canvas id="chartDHum"></canvas></div></div>
+      <div class="card"><h3>&Delta; VOC (inside &minus; ref)</h3><div class="chips" id="dVocChips"></div><div class="chart-wrap short"><canvas id="chartDVoc"></canvas></div></div>
+      <div class="card"><h3>&Delta; MQ3 (inside &minus; ref)</h3><div class="chips" id="dMq3Chips"></div><div class="chart-wrap short"><canvas id="chartDMq3"></canvas></div></div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-quality">
+    <div class="grid cols-2" style="margin-bottom:16px;">
+      <div class="card">
+        <h3>Sampling interval consistency</h3>
+        <p class="desc">Minutes between consecutive rows. Flat line at the expected cadence = healthy logging. Spikes = dropped or delayed samples.</p>
+        <div class="chart-wrap short"><canvas id="chartInterval"></canvas></div>
+        <div class="statline" id="intervalStats"></div>
+      </div>
+      <div class="card">
+        <h3>Per-sensor noise</h3>
+        <p class="desc">Step-to-step jitter normalized by the signal's own spread. Higher = noisier relative to how much real range the sensor shows.</p>
+        <div class="chart-wrap short"><canvas id="chartNoise"></canvas></div>
+      </div>
+    </div>
+    <div class="card full">
+      <h3>Reliability table</h3>
+      <p class="desc">Coverage, noise and spike counts per node/sensor, with a keep / caution / drop call for ML feature use.</p>
+      <div style="overflow-x:auto;"><table class="dq" id="dqTable"></table></div>
+      <div class="verdict" id="dqVerdict"></div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-spectral">
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Visible channels (f1&ndash;f8)</h3>
+        <p class="desc">All 8 visible photodiode channels over time, violet to red. Clear-channel lighting events marked as red dots.</p>
+        <div class="chart-wrap"><canvas id="chartSpectral"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Focus: red &amp; green region</h3>
+        <p class="desc">f5_555, f6_590, f7_630, f8_680. These carry most of the chlorophyll/degradation contrast for leafy tissue.</p>
+        <div class="chart-wrap"><canvas id="chartFocus"></canvas></div>
+      </div>
+    </div>
+    <div class="card full" style="margin-top:16px;">
+      <div id="lightingFlags"></div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-nirlabel">
+    <div class="callout info" style="margin-bottom:16px;">
+      This tab uses <b>only the NIR channel</b> &mdash; no red, no ratio. This is the signal your task asks you to feed into the ML labeling system. The ratio tab is kept as a reference benchmark to justify the choice.
+    </div>
+    <div class="grid cols-4" id="nirKpiRow" style="margin-bottom:16px;"></div>
+    <div class="card full" style="margin-bottom:16px;">
+      <h3>Raw NIR with suggested label zones</h3>
+      <p class="desc">NIR alone, smoothed (7-pt rolling). Horizontal bands are candidate freshness labels assigned purely from NIR thresholds &mdash; no red channel. Zones auto-scale to the data range (tertiles of the smoothed NIR span).</p>
+      <div class="chips" id="nirLabelChips"></div>
+      <div class="chart-wrap tall"><canvas id="chartNirLabel"></canvas></div>
+      <div class="statline" id="nirLabelStats"></div>
+    </div>
+    <div class="card full">
+      <h3>NIR alone vs NIR/Red ratio &mdash; % change from baseline</h3>
+      <p class="desc">Both signals normalized to their own baseline so they sit on one axis. This is the chart that justifies your labeling choice: do they agree on timing and direction?</p>
+      <div class="chips" id="nirCompareChips"></div>
+      <div class="chart-wrap"><canvas id="chartNirCompare"></canvas></div>
+      <div class="verdict" id="nirVerdict"></div>
+    </div>
+  </section>
+  <section class="panel-page" id="page-images">
+    <div class="callout info" id="imgEmptyNote" style="margin-bottom:16px;">
+      No images loaded yet. Click <b>Load Images</b> in the top bar and select your spinach photos (multi-select). Filenames like <span class="mono">capture_20260604_135110.jpg</span> are parsed for their timestamp and aligned to the nearest NIR reading. Images stay on your device &mdash; nothing is uploaded.
+    </div>
+    <div id="imgContent" style="display:none;">
+      <div class="grid cols-2" style="margin-bottom:16px;">
+        <div class="card">
+          <h3>Photo viewer &mdash; scrub the trial</h3>
+          <p class="desc">Drag the slider to step through the trial. The matched NIR reading and its label zone are shown so you can eyeball whether the sensor label agrees with what the spinach actually looks like.</p>
+          <div style="position:relative; width:100%; background:#000; border:1px solid var(--border-soft); border-radius:8px; overflow:hidden; min-height:280px; display:flex; align-items:center; justify-content:center;">
+            <img id="imgViewer" style="max-width:100%; max-height:420px; display:block;" alt="spinach photo" />
+          </div>
+          <input type="range" id="imgSlider" min="0" max="0" value="0" style="width:100%; margin-top:14px; accent-color:var(--node1);" />
+          <div class="statline" id="imgViewerStats"></div>
+        </div>
+        <div class="card">
+          <h3>Image &harr; NIR alignment</h3>
+          <p class="desc">Each photo's time gap to its nearest NIR reading. Green bars are within 5 minutes (effectively synchronous); red bars are looser matches worth checking.</p>
+          <div class="chart-wrap"><canvas id="chartImgAlign"></canvas></div>
+          <div class="statline" id="imgAlignStats"></div>
+        </div>
+      </div>
+      <div class="card full">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div>
+            <h3>Contact sheet</h3>
+            <p class="desc">All loaded photos in time order. Border color = the NIR label zone at that moment (green fresh, amber aging, red degraded). Click any thumbnail to open it in the viewer above.</p>
+          </div>
+          <button class="btn ghost" id="clearImgBtn" style="white-space:nowrap;">Clear Images</button>
+        </div>
+        <div id="imgStrip" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px; margin-top:4px;"></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const fmtNum = (x, d=1) => (x===null||x===undefined||Number.isNaN(x)) ? "n/a" : Number(x).toFixed(d);
+const mean = (a) => a.length ? a.reduce((s,x)=>s+x,0)/a.length : NaN;
+const std = (a) => { if(a.length<2) return NaN; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1)); };
+const COL = { node1:'#a371f7', node2:'#58a6ff', ref:'#8b949e', temp:'#f0883e', hum:'#39c5cf', voc:'#bc8cff', mq3:'#f778ba', co2:'#3fb950', grid:'rgba(139,148,158,0.12)', tick:'#8b949e', ok:'#3fb950', warn:'#d29922', bad:'#f85149', nir:'#a371f7' };
+const SPEC = [
+  {key:'f1_415nm', label:'415 (violet)', color:'#7c5cff'},
+  {key:'f2_445nm', label:'445 (indigo)', color:'#4f7bff'},
+  {key:'f3_480nm', label:'480 (blue)', color:'#2fa4ff'},
+  {key:'f4_515nm', label:'515 (cyan)', color:'#1fc4b0'},
+  {key:'f5_555nm', label:'555 (green)', color:'#4caf50'},
+  {key:'f6_590nm', label:'590 (yellow)', color:'#c9c11f'},
+  {key:'f7_630nm', label:'630 (orange)', color:'#f0883e'},
+  {key:'f8_680nm', label:'680 (red)', color:'#f7585b'},
+];
+let SENSOR = [];
+let SPECTRA = [];
+let IMAGES = [];
+const charts = {};
+function buildSampleSensor(){
+  const rng = mulberry32(20260501);
+  const start = new Date('2026-05-01T09:00:00');
+  const stepMin = 15;
+  const steps = 3*24*4;
+  const rows = [];
+  for(let i=0;i<=steps;i++){
+    if(i>0 && rng()<0.02) continue;
+    const jitter = (rng()-0.5)*2;
+    const t = new Date(start.getTime() + (i*stepMin + jitter)*60000);
+    const hod = (t.getHours() + t.getMinutes()/60);
+    const day = (t.getTime()-start.getTime())/86400000;
+    const diurnal = Math.sin((hod-9)/24*2*Math.PI);
+    const tRef = 20 + 2.6*diurnal + gauss(rng)*0.18;
+    const tN1 = 22.0 + 0.05*day + gauss(rng)*0.12;
+    const tN2 = 22.9 + 0.05*day + 0.4*Math.max(0,day-1) + gauss(rng)*0.13;
+    const hRef = 46 + 9*diurnal + gauss(rng)*0.9;
+    const hN1 = 70 + 6.0*day + gauss(rng)*0.7;
+    const hN2 = 72 + 6.3*day + gauss(rng)*0.7;
+    const vRef = 48 + gauss(rng)*4;
+    const vN1 = 80 + 175*day*day/4 + gauss(rng)*10;
+    const vN2 = 86 + 195*day*day/4 + gauss(rng)*11;
+    const mRef = 300 + gauss(rng)*16;
+    let mN1 = 600 + 165*day + gauss(rng)*58;
+    let mN2 = 520 + 150*day + gauss(rng)*44;
+    if(rng()<0.04) mN1 += 220;
+    if(rng()<0.03) mN2 += 180;
+    const cRef = 410 + gauss(rng)*8;
+    const cN1 = 600 + 520*day*day/4 + gauss(rng)*22;
+    const cN2 = 640 + 560*day*day/4 + gauss(rng)*24;
+    const drop = (val,p)=> rng()<p ? null : val;
+    rows.push({
+      t,
+      n1:{ temp:+tN1.toFixed(3), hum:+hN1.toFixed(2), voc:Math.round(vN1), mq3:drop(Math.round(mN1),0.015), co2:Math.round(cN1) },
+      n2:{ temp:+tN2.toFixed(3), hum:+hN2.toFixed(2), voc:Math.round(vN2), mq3:drop(Math.round(mN2),0.012), co2:Math.round(cN2) },
+      ref:{temp:+tRef.toFixed(3), hum:+hRef.toFixed(2), voc:Math.round(vRef), mq3:drop(Math.round(mRef),0.008), co2:Math.round(cRef) }
+    });
+  }
+  return rows;
+}
+function buildSampleSpectra(){
+  const rng = mulberry32(770512);
+  const start = new Date('2026-05-01T09:10:00');
+  const stepMin = 59;
+  const steps = Math.floor(3*24*60/stepMin);
+  const rows = [];
+  const base = { f1_415nm:120, f2_445nm:160, f3_480nm:210, f4_515nm:340, f5_555nm:520, f6_590nm:430, f7_630nm:300, f8_680nm:180 };
+  for(let i=0;i<=steps;i++){
+    const t = new Date(start.getTime() + i*stepMin*60000);
+    const day = (t.getTime()-start.getTime())/86400000;
+    const prog = day/3;
+    const ratio = 1.40*(1 - 0.105*prog) + gauss(rng)*0.006;
+    const f = {};
+    for(const k in base){
+      const decay = (k==='f5_555nm'||k==='f6_590nm') ? 0.10 : 0.05;
+      f[k] = Math.max(1, base[k]*(1 - decay*prog) + gauss(rng)*base[k]*0.018);
+    }
+    f.f7_630nm = Math.max(1, f.f7_630nm);
+    const nir = ratio * f.f7_630nm;
+    let clear = Object.values(f).reduce((s,x)=>s+x,0)*0.42 + nir*0.3 + gauss(rng)*8;
+    let lit = false;
+    if(i===14 || i===38 || i===61){ clear *= 2.4; lit = true; for(const k in f) f[k] *= 1.9; }
+    const round = {};
+    for(const k in f) round[k] = Math.round(f[k]);
+    rows.push({ t, f:round, clear:Math.round(clear), nir:Math.round(nir), gain:64, atime:100, astep:999, _lit:lit });
+  }
+  return rows;
+}
+function findTimeKey(headers){ const cand = headers.find(h => /time|date|timestamp|^ts$/i.test(h)); return cand || headers[0]; }
+function parseDate(v){ if(v==null) return null; if(typeof v === 'number'){ return new Date(v < 1e12 ? v*1000 : v); } const d = new Date(v); return isNaN(d) ? null : d; }
+// Node detection by normalized substring. Order matters: check node2 before
+// node1 is unnecessary since we look for the exact token. "master" maps to ref.
+function nodeOf(h){
+  const s = h.toLowerCase();
+  if(/node[_-]?0*1\b|(^|[_-])n0*1\b|inside[_-]?1|chamber[_-]?1/.test(s) || /node1|n1_/.test(s)) return 'n1';
+  if(/node[_-]?0*2\b|(^|[_-])n0*2\b|inside[_-]?2|chamber[_-]?2/.test(s) || /node2|n2_/.test(s)) return 'n2';
+  if(/master|ref(erence)?|outside|ambient|node[_-]?0*3\b|node3|n3_/.test(s)) return 'ref';
+  return null;
+}
+// Sensor detection by substring. Check tvoc/eco2 before generic voc/co2/temp
+// so eco2 isn't mistaken for co2-only and tvoc is caught.
+function sensorOf(h){
+  const s = h.toLowerCase();
+  if(/eco2|e_?co2/.test(s)) return 'co2';
+  if(/co2|co_?2/.test(s)) return 'co2';
+  if(/tvoc|voc/.test(s)) return 'voc';
+  if(/mq[_-]?3|alcohol|ethanol/.test(s)) return 'mq3';
+  if(/humid|hum\b|hum_|_hum|\brh\b/.test(s)) return 'hum';
+  if(/temp|temperature/.test(s)) return 'temp';
+  return null;
+}
+function resolveSensorColumns(headers){
+  const map = { n1:{}, n2:{}, ref:{} };
+  for(const h of headers){
+    const node = nodeOf(h), sens = sensorOf(h);
+    if(node && sens && !map[node][sens]) map[node][sens] = h;
+  }
+  return map;
+}
+function ingestSensorCSV(data, headers){
+  const tKey = findTimeKey(headers);
+  const map = resolveSensorColumns(headers);
+  const out = [];
+  for(const row of data){
+    const t = parseDate(row[tKey]);
+    if(!t) continue;
+    const pull = (node) => {
+      const m = map[node]; const o = {};
+      for(const s of ['temp','hum','voc','mq3','co2']){
+        const v = m[s]!==undefined ? row[m[s]] : undefined;
+        o[s] = (v===''||v===undefined||v===null) ? null : (typeof v==='number'? v : (isNaN(parseFloat(v))?null:parseFloat(v)));
+      }
+      return o;
+    };
+    out.push({ t, n1:pull('n1'), n2:pull('n2'), ref:pull('ref') });
+  }
+  out.sort((a,b)=>a.t-b.t);
+  return { rows: out, map };
+}
+function ingestSpectraCSV(data, headers){
+  const tKey = findTimeKey(headers);
+  const keyFor = (want) => headers.find(h => h.toLowerCase().replace(/[^a-z0-9]/g,'') === want.toLowerCase().replace(/[^a-z0-9]/g,'')) || headers.find(h => h.toLowerCase().includes(want.split('_')[1]?.toLowerCase()||want.toLowerCase()));
+  const chKeys = {}; SPEC.forEach(c => chKeys[c.key] = keyFor(c.key));
+  const nirKey = headers.find(h=>/^nir$/i.test(h)) || headers.find(h=>/nir/i.test(h));
+  const clearKey = headers.find(h=>/^clear$/i.test(h)) || headers.find(h=>/clear/i.test(h));
+  const gainKey = headers.find(h=>/gain/i.test(h));
+  const atimeKey = headers.find(h=>/atime/i.test(h));
+  const astepKey = headers.find(h=>/astep/i.test(h));
+  const out = [];
+  for(const row of data){
+    const t = parseDate(row[tKey]); if(!t) continue;
+    const f = {};
+    for(const c of SPEC){ const k=chKeys[c.key]; const v=k?parseFloat(row[k]):NaN; f[c.key]=isNaN(v)?null:v; }
+    out.push({
+      t, f,
+      nir: nirKey?parseFloat(row[nirKey]):null,
+      clear: clearKey?parseFloat(row[clearKey]):null,
+      gain: gainKey?parseFloat(row[gainKey]):null,
+      atime: atimeKey?parseFloat(row[atimeKey]):null,
+      astep: astepKey?parseFloat(row[astepKey]):null
+    });
+  }
+  out.sort((a,b)=>a.t-b.t);
+  return out;
+}
+function looksSpectral(headers){ const h = headers.map(x=>x.toLowerCase().replace(/[^a-z0-9]/g,'')); return h.some(x=>x.includes('415')) || h.some(x=>/f[1-8]/.test(x) && x.includes('nm')); }
+function destroy(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+// Self-contained date formatting — no external adapter needed.
+function fmtAxisDate(ms){
+  const d = new Date(ms);
+  const mo = d.toLocaleString('en-US', {month:'short'});
+  const day = d.getDate();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${mo} ${day} ${hh}:${mm}`;
+}
+function fmtTipDate(ms){
+  const d = new Date(ms);
+  const mo = d.toLocaleString('en-US', {month:'short'});
+  return `${mo} ${d.getDate()}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+// Linear axis over epoch-ms. Chart.js coerces Date objects in {x:Date} to numbers,
+// so existing data builders need no change. Tick callback prints human dates.
+// Tracks the active dataset's time span so linear x-axes pin to real data
+// instead of Chart.js padding to round numbers (which left empty gaps).
+let X_MIN = null, X_MAX = null;
+function setXSpan(rows){
+  const ts = rows.map(r=> r.t instanceof Date ? r.t.getTime() : (typeof r.t==='number'? r.t : null)).filter(v=>v!=null);
+  if(ts.length){ X_MIN = Math.min(...ts); X_MAX = Math.max(...ts); }
+  else { X_MIN = null; X_MAX = null; }
+}
+const timeAxis = (showLabel=true) => {
+  const ax = {
+    type:'linear',
+    grid:{ color:COL.grid, drawTicks:false },
+    ticks:{
+      color:COL.tick, font:{family:'Space Mono', size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:8,
+      callback:(v)=>fmtAxisDate(v)
+    },
+    border:{ color:COL.grid }
+  };
+  if(X_MIN!=null && X_MAX!=null){ ax.min = X_MIN; ax.max = X_MAX; }
+  return ax;
+};
+const valAxis = (title) => ({ grid:{ color:COL.grid, drawTicks:false }, ticks:{ color:COL.tick, font:{family:'Space Mono', size:10} }, border:{ color:COL.grid }, title: title ? { display:true, text:title, color:COL.tick, font:{family:'Space Mono', size:10} } : {display:false} });
+const baseOpts = (yTitle) => ({
+  responsive:true, maintainAspectRatio:false,
+  interaction:{ mode:'nearest', intersect:false },
+  plugins:{ legend:{ display:false }, tooltip:{ backgroundColor:'#0d1117', borderColor:'#2a313c', borderWidth:1, titleColor:'#e6edf3', bodyColor:'#e6edf3', titleFont:{family:'Space Mono', size:11}, bodyFont:{family:'IBM Plex Sans', size:12}, padding:10, displayColors:true, callbacks:{ title:(items)=>{ if(!items.length) return ''; const x=items[0].parsed.x; return (typeof x==='number' && x>1e11) ? fmtTipDate(x) : (items[0].label||''); } } } },
+  scales:{ x:timeAxis(), y:valAxis(yTitle) },
+  elements:{ point:{ radius:0, hoverRadius:4 }, line:{ tension:0.18, borderWidth:1.6 } }
+});
+function series(rows, getter, node){ return rows.map(r => ({ x:r.t, y: r[node] ? r[node][getter] : null })); }
+function ds(label, data, color, opts={}){ return Object.assign({ label, data, borderColor:color, backgroundColor:color, spanGaps:true, pointRadius:0, pointHoverRadius:4 }, opts); }
+function chip(parent, color, label, dashed=false){ const el = document.createElement('span'); el.className='chip'; if(dashed){ const l=document.createElement('span'); l.className='line'; l.style.borderColor=color; el.appendChild(l); } else { const i=document.createElement('i'); i.style.background=color; el.appendChild(i); } el.appendChild(document.createTextNode(label)); parent.appendChild(el); }
+function setChips(id, items){ const el=$(id); if(!el) return; el.innerHTML=''; items.forEach(it=>chip(el,it.c,it.l,it.dash)); }
+function renderKPIs(){
+  const row=$('kpiRow'); row.innerHTML='';
+  const n=SENSOR.length;
+  let durTxt='n/a', interval='n/a';
+  if(n>1){
+    const dur=(SENSOR[n-1].t - SENSOR[0].t)/3600000;
+    durTxt = dur>=48 ? (dur/24).toFixed(1)+' d' : dur.toFixed(1)+' h';
+    const diffs=[]; for(let i=1;i<n;i++) diffs.push((SENSOR[i].t-SENSOR[i-1].t)/60000);
+    diffs.sort((a,b)=>a-b); interval = diffs[Math.floor(diffs.length/2)].toFixed(1);
+  }
+  const cnt=(node,s)=>SENSOR.filter(r=>r[node]&&r[node][s]!=null).length;
+  const tiles=[
+    {label:'Trial duration', value:durTxt, meta: n>1?`${SENSOR[0].t.toLocaleDateString()} &rarr; ${SENSOR[n-1].t.toLocaleDateString()}`:''},
+    {label:'Readings / node', value:n, unit:'rows', meta:`<span class="n1">N1 ${cnt('n1','temp')}</span> &middot; <span class="n2">N2 ${cnt('n2','temp')}</span> &middot; <span class="rf">Ref ${cnt('ref','temp')}</span>`},
+    {label:'Median interval', value:interval, unit:'min', meta:'sensor cadence'},
+    {label:'Nodes', value:'3', meta:'<span class="n1">2 inside</span> + <span class="rf">1 reference</span>'},
+  ];
+  for(const t of tiles){
+    const d=document.createElement('div'); d.className='kpi';
+    d.innerHTML=`<div class="label">${t.label}</div><div class="value">${t.value}${t.unit?`<span class="unit">${t.unit}</span>`:''}</div><div class="meta">${t.meta||''}</div>`;
+    row.appendChild(d);
+  }
+}
+function renderOverview(){
+  renderKPIs();
+  destroy('overview');
+  const norm = (vals)=>{ const v=vals.filter(x=>x!=null); const mn=Math.min(...v), mx=Math.max(...v); const rng=(mx-mn)||1; return vals.map(x=>x==null?null:(x-mn)/rng); };
+  const t = SENSOR.map(r=>r.t);
+  const families=[
+    {l:'Temp (N1)', c:COL.temp, raw:SENSOR.map(r=>r.n1?.temp)},
+    {l:'Humidity (N1)', c:COL.hum, raw:SENSOR.map(r=>r.n1?.hum)},
+    {l:'VOC (N1)', c:COL.voc, raw:SENSOR.map(r=>r.n1?.voc)},
+    {l:'MQ3 (N1)', c:COL.mq3, raw:SENSOR.map(r=>r.n1?.mq3)},
+    {l:'eCO2 (N1)', c:COL.co2, raw:SENSOR.map(r=>r.n1?.co2)},
+  ];
+  setChips('overviewChips', families.map(f=>({c:f.c,l:f.l})));
+  const datasets = families.map(f=>{ const nv=norm(f.raw); return ds(f.l, t.map((tt,i)=>({x:tt,y:nv[i]})), f.c, {borderWidth:1.6}); });
+  const opts = baseOpts('normalized 0\u20131');
+  opts.scales.y.min=0; opts.scales.y.max=1;
+  opts.plugins.tooltip.callbacks = { label:(c)=>`${c.dataset.label}: ${c.parsed.y==null?'n/a':c.parsed.y.toFixed(2)}` };
+  charts.overview=new Chart($('chartOverview'), {type:'line', data:{datasets}, options:opts});
+}
+function multiNodeChart(canvasId, chipsId, sensor, yTitle){
+  destroy(canvasId);
+  setChips(chipsId, [ {c:COL.node1,l:'Node 1 (inside)'}, {c:COL.node2,l:'Node 2 (inside)'}, {c:COL.ref,l:'Reference (outside)', dash:true} ]);
+  const datasets=[
+    ds('Node 1', series(SENSOR,sensor,'n1'), COL.node1),
+    ds('Node 2', series(SENSOR,sensor,'n2'), COL.node2),
+    ds('Reference', series(SENSOR,sensor,'ref'), COL.ref, {borderDash:[5,4], borderWidth:1.4}),
+  ];
+  const opts=baseOpts(yTitle);
+  opts.plugins.tooltip.callbacks={ label:(c)=>`${c.dataset.label}: ${c.parsed.y==null?'n/a':c.parsed.y.toFixed(sensor==='temp'?2:1)}` };
+  charts[canvasId]=new Chart($(canvasId), {type:'line', data:{datasets}, options:opts});
+}
+function trendStat(node, sensor){
+  const pts=SENSOR.map(r=>({t:r.t, y:r[node]?r[node][sensor]:null})).filter(p=>p.y!=null);
+  if(pts.length<6) return null;
+  const k=Math.max(3,Math.floor(pts.length*0.06));
+  const startV=mean(pts.slice(0,k).map(p=>p.y));
+  const endV=mean(pts.slice(-k).map(p=>p.y));
+  const t0=pts[0].t.getTime();
+  const xs=pts.map(p=>(p.t.getTime()-t0)/3600000), ys=pts.map(p=>p.y);
+  const mx=mean(xs), my=mean(ys);
+  let num=0,den=0; for(let i=0;i<xs.length;i++){ num+=(xs[i]-mx)*(ys[i]-my); den+=(xs[i]-mx)**2; }
+  const slope=den?num/den:0;
+  const pct=startV!==0?(endV-startV)/Math.abs(startV)*100:NaN;
+  return {startV,endV,slope,pct};
+}
+function renderTrendStats(elId, sensor, unit){
+  const el=$(elId); if(!el) return; el.innerHTML='';
+  for(const [node,label,cls] of [['n1','N1','n1'],['n2','N2','n2'],['ref','Ref','rf']]){
+    const s=trendStat(node,sensor);
+    const item=document.createElement('div'); item.className='item';
+    if(!s){ item.innerHTML=`<div class="k">${label}</div><div class="v">n/a</div>`; }
+    else{
+      const arrow=s.pct>=0?'\u25B2':'\u25BC';
+      item.innerHTML=`<div class="k"><span class="node-tag ${cls}">${label}</span> start &rarr; end</div><div class="v">${fmtNum(s.startV,0)} &rarr; ${fmtNum(s.endV,0)} <span style="font-size:11px;color:var(--txt-dim)">${arrow}${fmtNum(Math.abs(s.pct),0)}% &middot; ${fmtNum(s.slope,2)} ${unit}/h</span></div>`;
+    }
+    el.appendChild(item);
+  }
+}
+function renderTempHum(){ multiNodeChart('chartTemp','tempChips','temp','\u00B0C'); multiNodeChart('chartHum','humChips','hum','%RH'); }
+function renderGas(){
+  multiNodeChart('chartVoc','vocChips','voc','ppb');
+  multiNodeChart('chartMq3','mq3Chips','mq3','ppm');
+  multiNodeChart('chartCo2','co2Chips','co2','ppm');
+  renderTrendStats('vocStats','voc','ppb');
+  renderTrendStats('mq3Stats','mq3','ppm');
+  renderTrendStats('co2Stats','co2','ppm');
+}
+function deltaSeries(sensor, node){ return SENSOR.map(r=>{ const a=r[node]?r[node][sensor]:null, b=r.ref?r.ref[sensor]:null; return {x:r.t, y:(a==null||b==null)?null:a-b}; }); }
+function deltaChart(canvasId, chipsId, sensor, yTitle){
+  destroy(canvasId);
+  setChips(chipsId,[{c:COL.node1,l:'N1 \u2212 Ref'},{c:COL.node2,l:'N2 \u2212 Ref'}]);
+  const datasets=[ ds('N1 \u2212 Ref', deltaSeries(sensor,'n1'), COL.node1, {fill:false}), ds('N2 \u2212 Ref', deltaSeries(sensor,'n2'), COL.node2, {fill:false}) ];
+  const opts=baseOpts(yTitle);
+  const zero = SENSOR.map(r=>({x:r.t,y:0}));
+  datasets.push(ds('zero', zero, 'rgba(139,148,158,0.35)', {borderDash:[3,4], borderWidth:1, pointRadius:0, order:99}));
+  opts.plugins.tooltip.filter=(item)=>item.dataset.label!=='zero';
+  charts[canvasId]=new Chart($(canvasId),{type:'line',data:{datasets},options:opts});
+}
+function renderCompare(){
+  deltaChart('chartDTemp','dTempChips','temp','\u0394 \u00B0C');
+  deltaChart('chartDHum','dHumChips','hum','\u0394 %RH');
+  deltaChart('chartDVoc','dVocChips','voc','\u0394 ppb');
+  deltaChart('chartDMq3','dMq3Chips','mq3','\u0394 ppm');
+}
+function seriesStats(node, sensor){
+  const all=SENSOR.map(r=>r[node]?r[node][sensor]:null);
+  const present=all.filter(v=>v!=null);
+  const coverage = all.length? present.length/all.length : 0;
+  const diffs=[]; let prev=null;
+  for(const v of all){ if(v!=null && prev!=null) diffs.push(v-prev); prev = v!=null?v:prev; }
+  const absDiff = diffs.map(d=>Math.abs(d));
+  const mad = mean(absDiff);
+  const sd = std(present);
+  const noiseRatio = (sd && sd>0) ? mad/sd : NaN;
+  const sdDiff = std(diffs); const mDiff = mean(diffs);
+  const spikes = diffs.filter(d=>sdDiff>0 && Math.abs(d-mDiff) > 4*sdDiff).length;
+  return {n:all.length, present:present.length, coverage, mad, sd, noiseRatio, spikes};
+}
+function reliabilityVerdict(sensor, st){
+  if(st.coverage<0.9) return {cls:'bad', txt:'drop / fix'};
+  if(Number.isNaN(st.noiseRatio)) return {cls:'warn',txt:'flat?'};
+  if(st.noiseRatio>0.8) return {cls:'bad', txt:'too noisy'};
+  if(st.noiseRatio>0.35 || st.spikes>5) return {cls:'warn', txt:'caution'};
+  return {cls:'ok', txt:'keep'};
+}
+function renderQuality(){
+  destroy('interval');
+  const pts=[]; for(let i=1;i<SENSOR.length;i++){ pts.push({x:SENSOR[i].t, y:(SENSOR[i].t-SENSOR[i-1].t)/60000}); }
+  const med = pts.length? [...pts.map(p=>p.y)].sort((a,b)=>a-b)[Math.floor(pts.length/2)] : 0;
+  const expLine = pts.map(p=>({x:p.x,y:med}));
+  const iOpts=baseOpts('minutes');
+  iOpts.elements.point.radius=2; iOpts.elements.point.hoverRadius=4;
+  iOpts.plugins.tooltip.callbacks={label:(c)=>`${c.parsed.y.toFixed(2)} min`};
+  charts.interval=new Chart($('chartInterval'),{type:'line',data:{datasets:[
+    ds('interval', pts, COL.node2, {showLine:true, pointRadius:2, pointBackgroundColor:pts.map(p=>Math.abs(p.y-med)>0.5*med?COL.bad:COL.node2), borderWidth:1}),
+    ds('expected', expLine, COL.ref, {borderDash:[5,4], borderWidth:1, pointRadius:0})
+  ]},options:iOpts});
+  const jit = pts.filter(p=>Math.abs(p.y-med)>0.5*med).length;
+  const gapMissing = pts.filter(p=>p.y>1.8*med).reduce((s,p)=>s+Math.round(p.y/med)-1,0);
+  $('intervalStats').innerHTML=`<div class="item"><div class="k">Median interval</div><div class="v">${med.toFixed(2)} min</div></div><div class="item"><div class="k">Off-cadence rows</div><div class="v">${jit}</div></div><div class="item"><div class="k">Est. missing slots</div><div class="v">${gapMissing}</div></div>`;
+  destroy('noise');
+  const sensors=['temp','hum','voc','mq3','co2']; const nodes=['n1','n2','ref'];
+  const labels=[]; const data=[]; const colors=[];
+  const sCol={temp:COL.temp,hum:COL.hum,voc:COL.voc,mq3:COL.mq3,co2:COL.co2};
+  for(const s of sensors){ for(const nd of nodes){ const st=seriesStats(nd,s); labels.push(`${s.toUpperCase()} ${nd.toUpperCase()}`); data.push(Number.isNaN(st.noiseRatio)?0:+st.noiseRatio.toFixed(3)); colors.push(sCol[s]); }}
+  const nOpts=baseOpts('noise ratio (MAD/\u03C3)');
+  nOpts.scales.x={ grid:{color:COL.grid,drawTicks:false}, ticks:{color:COL.tick,font:{family:'Space Mono',size:9},maxRotation:60,minRotation:60}, border:{color:COL.grid } };
+  nOpts.plugins.tooltip.callbacks={label:(c)=>`noise ratio: ${c.parsed.y}`};
+  charts.noise=new Chart($('chartNoise'),{type:'bar',data:{labels,datasets:[{label:'noise',data,backgroundColor:colors,borderRadius:3}]},options:nOpts});
+  const tbl=$('dqTable');
+  tbl.innerHTML=`<thead><tr><th>Sensor</th><th>Node</th><th>Coverage</th><th>Noise ratio</th><th>Spikes</th><th>Verdict</th></tr></thead>`;
+  const tb=document.createElement('tbody');
+  for(const s of sensors){ for(const nd of nodes){
+    const st=seriesStats(nd,s); const vd=reliabilityVerdict(s,st);
+    const ndCls=nd==='n1'?'n1':nd==='n2'?'n2':'rf';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${s.toUpperCase()}</td><td><span class="node-tag ${ndCls}">${nd.toUpperCase()}</span></td><td class="num">${(st.coverage*100).toFixed(1)}%</td><td class="num">${Number.isNaN(st.noiseRatio)?'n/a':st.noiseRatio.toFixed(3)}</td><td class="num">${st.spikes}</td><td><span class="badge ${vd.cls}">${vd.txt}</span></td>`;
+    tb.appendChild(tr);
+  }}
+  tbl.appendChild(tb);
+  const vocN1=trendStat('n1','voc'), mq3N1=trendStat('n1','mq3');
+  const vocStat=seriesStats('n1','voc'), mqStat=seriesStats('n1','mq3');
+  let verdict='';
+  if(vocN1 && mq3N1){
+    const vocClear = vocN1.pct>40 && vocStat.noiseRatio<0.35;
+    const mqOK = mqStat.noiseRatio<0.35 && mqStat.coverage>0.95;
+    verdict = `<b>VOC (N1):</b> ${fmtNum(vocN1.pct,0)}% rise across the trial at noise ratio ${vocStat.noiseRatio.toFixed(2)} &mdash; ${vocClear?'a clear, trackable spoilage signal.':'trend present but check noise.'}<br><b>MQ3 (N1):</b> ${fmtNum(mq3N1.pct,0)}% change at noise ratio ${mqStat.noiseRatio.toFixed(2)} with ${mqStat.spikes} spikes and ${(mqStat.coverage*100).toFixed(1)}% coverage. `;
+    verdict += mqOK ? 'The trend survives the noise, so MQ3 is usable as a feature, ideally after smoothing and node-level offset correction.' : 'The step-to-step jitter is large relative to the trend. Keep MQ3 only with heavy smoothing, and do not trust raw single readings. Treat it as a weak/secondary feature versus VOC.';
+  } else { verdict='Not enough data to judge trackability.'; }
+  $('dqVerdict').innerHTML=verdict;
+}
+function ratioArray(){ return SPECTRA.map(r=>{ const red=r.f.f7_630nm, nir=r.nir; return {x:r.t, y:(red==null||nir==null||red===0)?null:nir/red}; }); }
+function clearMedian(){ const clears=SPECTRA.map(r=>r.clear).filter(v=>v!=null); return clears.length? [...clears].sort((a,b)=>a-b)[Math.floor(clears.length/2)] : 0; }
+function litFlagArray(){ const cm=clearMedian(); return SPECTRA.map(r=> r.clear!=null && cm>0 && r.clear > cm*1.6 ); }
+function spectralBaseline(){
+  const lit=litFlagArray();
+  const cleanRatio=[]; for(let i=0;i<SPECTRA.length;i++){ const red=SPECTRA[i].f.f7_630nm, nir=SPECTRA[i].nir; if(!lit[i] && red && nir && red!==0) cleanRatio.push(nir/red); if(cleanRatio.length>=3) break; }
+  return mean(cleanRatio);
+}
+function renderSpectral(){
+  if(SPECTRA.length===0){ ['chartSpectral','chartFocus'].forEach(destroy); $('lightingFlags').innerHTML='<div class="callout">No multispectral CSV loaded. Upload an AS7341 export or reset to sample.</div>'; return; }
+  destroy('spectral');
+  const litFlags=litFlagArray();
+  const clearMed=clearMedian();
+  const specDs = SPEC.map(c=>ds(c.label, SPECTRA.map(r=>({x:r.t,y:r.f[c.key]})), c.color, {borderWidth:1.4}));
+  const flagPts = SPECTRA.map((r,i)=> litFlags[i] ? {x:r.t, y:r.f.f5_555nm} : null).filter(Boolean);
+  specDs.push({label:'lighting event', data:flagPts, borderColor:COL.bad, backgroundColor:COL.bad, showLine:false, pointRadius:5, pointStyle:'rectRot', pointHoverRadius:7});
+  charts.spectral=new Chart($('chartSpectral'),{type:'line',data:{datasets:specDs},options:baseOpts('counts')});
+  destroy('focus');
+  const focus=['f5_555nm','f6_590nm','f7_630nm','f8_680nm'].map(k=>{ const c=SPEC.find(x=>x.key===k); return ds(c.label, SPECTRA.map(r=>({x:r.t,y:r.f[k]})), c.color, {borderWidth:1.7}); });
+  charts.focus=new Chart($('chartFocus'),{type:'line',data:{datasets:focus},options:baseOpts('counts')});
+  const flagged=[]; SPECTRA.forEach((r,i)=>{ if(litFlags[i]) flagged.push(r); });
+  if(flagged.length){
+    const rows=flagged.map(r=>`<span class="mono">${r.t.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span> &mdash; clear=${Math.round(r.clear)} (median \u2248 ${Math.round(clearMed)})`).join('<br>');
+    $('lightingFlags').innerHTML=`<div class="callout flag-list"><b>${flagged.length} lighting event(s) flagged</b> &mdash; clear channel exceeded 1.6&times; its median. Exclude or correct these rows before they leak into the NIR label.<br><br>${rows}</div>`;
+  } else { $('lightingFlags').innerHTML=`<div class="callout">No abnormal clear-channel jumps detected. Lighting looks stable across the trial.</div>`; }
+}
+function rollingMeanArr(vals, w=7){
+  return vals.map((_,i)=>{ const slice=vals.slice(Math.max(0,i-w+1),i+1).filter(v=>v!=null); return slice.length? mean(slice):null; });
+}
+function renderNirLabel(){
+  if(SPECTRA.length===0){ ['chartNirLabel','chartNirCompare'].forEach(destroy); $('nirKpiRow').innerHTML='<div class="kpi"><div class="label">NIR</div><div class="value">no data</div></div>'; $('nirVerdict').innerHTML='No multispectral CSV loaded.'; return; }
+  const lit=litFlagArray();
+  const nirRaw=SPECTRA.map((r,i)=> lit[i]?null:r.nir);
+  const nirClean=nirRaw.filter(v=>v!=null);
+  const nirBase=mean(nirClean.slice(0,3));
+  const nirRoll=rollingMeanArr(SPECTRA.map(r=>r.nir),7);
+  const nirMin=Math.min(...nirClean), nirMax=Math.max(...nirClean);
+  const nirMean=mean(nirClean), nirSd=std(nirClean);
+  const nirFinal=nirClean[nirClean.length-1];
+  // Direction-aware zones: "Fresh" is anchored to the start-of-trial baseline.
+  // Degradation can move NIR UP (your real data) or DOWN (sample), so we split
+  // the span from baseline toward the end-state into thirds along the travel direction.
+  const Z = computeNirZones(nirClean);
+  const dirUp = Z.dir > 0;  // true: NIR rises with degradation
+  const freshMax=Z.b1, agingMax=Z.b2; // numeric thresholds (b1 nearer fresh, b2 nearer degraded)
+  // KPIs
+  const row=$('nirKpiRow'); row.innerHTML='';
+  const tiles=[
+    {label:'NIR baseline', value:nirBase.toFixed(1), unit:'ADC', meta:'first 3 clean readings'},
+    {label:'NIR final', value:nirFinal, unit:'ADC', meta:'last clean reading'},
+    {label:'NIR change', value:(((nirFinal/nirBase)-1)*100>=0?'+':'')+(((nirFinal/nirBase)-1)*100).toFixed(0)+'%', meta:'rises as tissue degrades'},
+    {label:'NIR CV', value:(nirSd/nirMean*100).toFixed(1)+'%', meta:'noisier than ratio'},
+  ];
+  for(const t of tiles){ const d=document.createElement('div'); d.className='kpi'; d.innerHTML=`<div class="label">${t.label}</div><div class="value">${t.value}${t.unit?`<span class="unit">${t.unit}</span>`:''}</div><div class="meta">${t.meta||''}</div>`; row.appendChild(d); }
+  // label zone chart
+  destroy('nirlabel');
+  setChips('nirLabelChips',[{c:COL.nir,l:'Raw NIR'},{c:'#e6edf3',l:'Rolling mean'},{c:COL.ok,l:'Fresh'},{c:COL.warn,l:'Aging'},{c:COL.bad,l:'Degraded'}]);
+  const nirPts=SPECTRA.map((r,i)=> lit[i]?null:{x:r.t,y:r.nir}).filter(Boolean);
+  const rollPts=SPECTRA.map((r,i)=> nirRoll[i]==null?null:{x:r.t,y:nirRoll[i]}).filter(Boolean);
+  const opts=baseOpts('NIR (ADC counts)');
+  // background band plugin
+  const bandPlugin={ id:'nirBands', beforeDraw(chart){ const {ctx,chartArea,scales}=chart; if(!chartArea) return; const yA=scales.y; const lo=Math.min(freshMax,agingMax), hi=Math.max(freshMax,agingMax); const greenCol='rgba(63,185,80,0.07)', amberCol='rgba(210,153,34,0.07)', redCol='rgba(248,81,73,0.07)'; const freshIsLow = !dirUp ? false : true; const bottom=[yA.min, lo], mid=[lo, hi], top=[hi, yA.max]; const bands = dirUp ? [[...bottom, greenCol],[...mid, amberCol],[...top, redCol]] : [[...bottom, redCol],[...mid, amberCol],[...top, greenCol]]; ctx.save(); for(const [blo,bhi,col] of bands){ const y1=yA.getPixelForValue(bhi), y2=yA.getPixelForValue(blo); ctx.fillStyle=col; ctx.fillRect(chartArea.left,y1,chartArea.right-chartArea.left,y2-y1); } ctx.restore(); } };
+  charts.nirlabel=new Chart($('chartNirLabel'),{type:'line',data:{datasets:[
+    ds('Raw NIR', nirPts, COL.nir, {borderWidth:1.4, pointRadius:2, pointBackgroundColor:COL.nir, spanGaps:true}),
+    ds('Rolling mean', rollPts, '#e6edf3', {borderWidth:2.2, pointRadius:0}),
+  ]},options:opts, plugins:[bandPlugin]});
+  $('nirLabelStats').innerHTML=`<div class="item"><div class="k">Fresh zone</div><div class="v" style="color:var(--ok)">${dirUp?'&lt; '+freshMax.toFixed(0):'&gt; '+freshMax.toFixed(0)}</div></div><div class="item"><div class="k">Aging zone</div><div class="v" style="color:var(--warn)">${Math.min(freshMax,agingMax).toFixed(0)}\u2013${Math.max(freshMax,agingMax).toFixed(0)}</div></div><div class="item"><div class="k">Degraded zone</div><div class="v" style="color:var(--bad)">${dirUp?'&gt; '+agingMax.toFixed(0):'&lt; '+agingMax.toFixed(0)}</div></div><div class="item"><div class="k">NIR direction</div><div class="v">${dirUp?'rises \u2191':'falls \u2193'}</div></div>`;
+  // compare chart
+  destroy('nircompare');
+  setChips('nirCompareChips',[{c:COL.nir,l:'Raw NIR % change'},{c:COL.ok,l:'NIR/Red ratio % change'}]);
+  const ratio=ratioArray();
+  const ratioClean=[]; for(let i=0;i<ratio.length;i++){ if(!lit[i] && ratio[i].y!=null) ratioClean.push(ratio[i].y); if(ratioClean.length>=3) break; }
+  const ratioBase=mean(ratioClean);
+  const nirPctPts=SPECTRA.map((r,i)=> lit[i]?null:{x:r.t,y:((r.nir/nirBase)-1)*100}).filter(Boolean);
+  const ratioPctPts=ratio.map((p,i)=> lit[i]||p.y==null?null:{x:p.x,y:((p.y/ratioBase)-1)*100}).filter(Boolean);
+  const cOpts=baseOpts('% change from baseline');
+  cOpts.plugins.tooltip.callbacks={label:(c)=>`${c.dataset.label}: ${c.parsed.y==null?'n/a':c.parsed.y.toFixed(1)}%`};
+  const zero=SPECTRA.map(r=>({x:r.t,y:0}));
+  charts.nircompare=new Chart($('chartNirCompare'),{type:'line',data:{datasets:[
+    ds('Raw NIR % change', nirPctPts, COL.nir, {borderWidth:2, spanGaps:true}),
+    ds('NIR/Red ratio % change', ratioPctPts, COL.ok, {borderWidth:2, spanGaps:true}),
+    ds('zero', zero, 'rgba(139,148,158,0.3)', {borderDash:[3,4],borderWidth:1,pointRadius:0,order:99}),
+  ]},options:cOpts});
+  const nirChange=((nirFinal/nirBase)-1)*100;
+  const lastRatio=[...ratio].reverse().find((p,i)=>p.y!=null);
+  const ratioChange=lastRatio? (lastRatio.y-ratioBase)/ratioBase*100 : NaN;
+  $('nirVerdict').innerHTML=`<b>Raw NIR</b> changed ${nirChange>=0?'+':''}${nirChange.toFixed(0)}% and the <b>NIR/Red ratio</b> changed ${ratioChange>=0?'+':''}${ratioChange.toFixed(0)}% over the trial. They move in opposite directions but track the same degradation: as red rises faster than NIR, the ratio falls even while NIR climbs. For labeling you can use either &mdash; raw NIR is literally "the NIR channel" your task specifies, while the ratio is more robust to lighting and sensor-distance changes between batches. Showing both side by side is the justification for whichever you feed into the ML.`;
+}
+/* ---------- images ---------- */
+function parseImageTime(name){
+  let m = name.match(/(\d{4})(\d{2})(\d{2})[_\-]?(\d{2})(\d{2})(\d{2})/);
+  if(m){ return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]); }
+  m = name.match(/(\d{4})-(\d{2})-(\d{2})[ _T](\d{2})[-:](\d{2})[-:](\d{2})/);
+  if(m){ return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]); }
+  m = name.match(/(\d{10,13})/);
+  if(m){ const n=+m[1]; return new Date(n<1e12? n*1000 : n); }
+  return null;
+}
+// Direction-aware NIR zone computation, shared by NIR-label tab and Images tab.
+// Anchors "Fresh" to the start-of-trial baseline. Degradation may move NIR up
+// or down; we measure travel from baseline toward the end-state and split into thirds.
+function computeNirZones(nirClean){
+  if(!nirClean || nirClean.length<2) return null;
+  const base = mean(nirClean.slice(0,3));
+  const endV = mean(nirClean.slice(-3));
+  const dir = Math.sign(endV - base) || 1;       // +1 rises, -1 falls
+  const mn=Math.min(...nirClean), mx=Math.max(...nirClean);
+  // span runs from the fresh end (near baseline) to the degraded extreme (far end in dir)
+  const freshEnd = dir>0 ? mn : mx;              // value closest to fresh
+  const degEnd   = dir>0 ? mx : mn;              // value at most degraded
+  const b1 = freshEnd + (degEnd-freshEnd)*(1/3); // fresh|aging boundary
+  const b2 = freshEnd + (degEnd-freshEnd)*(2/3); // aging|degraded boundary
+  return { base, dir, b1, b2, mn, mx };
+}
+function nirLabelZones(){
+  const lit = SPECTRA.length? litFlagArray() : [];
+  const nirClean = SPECTRA.map((r,i)=> lit[i]?null:r.nir).filter(v=>v!=null);
+  return computeNirZones(nirClean);
+}
+function zoneFor(nir, zones){
+  if(!zones || nir==null) return {txt:'n/a', col:COL.tick};
+  // distance from fresh end along the degradation direction
+  if(zones.dir>0){
+    if(nir < zones.b1) return {txt:'Fresh', col:COL.ok};
+    if(nir < zones.b2) return {txt:'Aging', col:COL.warn};
+    return {txt:'Degraded', col:COL.bad};
+  } else {
+    if(nir > zones.b1) return {txt:'Fresh', col:COL.ok};
+    if(nir > zones.b2) return {txt:'Aging', col:COL.warn};
+    return {txt:'Degraded', col:COL.bad};
+  }
+}
+function nearestSpectra(t){
+  if(SPECTRA.length===0) return null;
+  let best=SPECTRA[0], bestD=Math.abs(SPECTRA[0].t - t);
+  for(const r of SPECTRA){ const d=Math.abs(r.t - t); if(d<bestD){ bestD=d; best=r; } }
+  return { row:best, deltaMin: bestD/60000 };
+}
+function renderImages(){
+  if(IMAGES.length===0){ $('imgEmptyNote').style.display=''; $('imgContent').style.display='none'; return; }
+  $('imgEmptyNote').style.display='none';
+  $('imgContent').style.display='';
+  const zones=nirLabelZones();
+  const slider=$('imgSlider');
+  slider.max=String(IMAGES.length-1);
+  if(+slider.value > IMAGES.length-1) slider.value='0';
+  const showAt=(idx)=>{
+    const im=IMAGES[idx]; if(!im) return;
+    $('imgViewer').src=im.url;
+    const near = im.t? nearestSpectra(im.t) : null;
+    const nir = near? near.row.nir : null;
+    const z = zoneFor(nir, zones);
+    const dt = im.t? im.t.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'no timestamp';
+    $('imgViewerStats').innerHTML =
+      `<div class="item"><div class="k">Photo ${idx+1}/${IMAGES.length}</div><div class="v">${dt}</div></div>`+
+      `<div class="item"><div class="k">Nearest NIR</div><div class="v">${nir!=null?nir:'n/a'}${near?` <span style="font-size:11px;color:var(--txt-dim)">\u0394${near.deltaMin.toFixed(1)}m</span>`:''}</div></div>`+
+      `<div class="item"><div class="k">NIR label</div><div class="v" style="color:${z.col}">${z.txt}</div></div>`+
+      `<div class="item"><div class="k">File</div><div class="v" style="font-size:11px">${im.name}</div></div>`;
+  };
+  slider.oninput=()=>showAt(+slider.value);
+  showAt(+slider.value);
+  destroy('imgalign');
+  const alignPts = IMAGES.map(im=>{ if(!im.t) return {x:0,y:null}; const near=nearestSpectra(im.t); return {x:im.t, y: near? +near.deltaMin.toFixed(2) : null}; });
+  const cols = IMAGES.map(im=>{ if(!im.t) return COL.tick; const n=nearestSpectra(im.t); return (n && n.deltaMin<=5)? COL.ok : COL.bad; });
+  const aOpts=baseOpts('\u0394 min to nearest NIR');
+  charts.imgalign=new Chart($('chartImgAlign'),{type:'bar',data:{datasets:[{label:'gap',data:alignPts,backgroundColor:cols,borderRadius:3}]},options:aOpts});
+  const valid=IMAGES.filter(im=>im.t).length;
+  const within5 = IMAGES.filter(im=>{ if(!im.t) return false; const n=nearestSpectra(im.t); return n && n.deltaMin<=5; }).length;
+  const noTime = IMAGES.length - valid;
+  $('imgAlignStats').innerHTML =
+    `<div class="item"><div class="k">Images</div><div class="v">${IMAGES.length}</div></div>`+
+    `<div class="item"><div class="k">Within 5 min</div><div class="v" style="color:var(--ok)">${within5}/${valid}</div></div>`+
+    `<div class="item"><div class="k">No timestamp</div><div class="v" style="color:${noTime?'var(--warn)':'var(--txt-dim)'}">${noTime}</div></div>`;
+  const strip=$('imgStrip'); strip.innerHTML='';
+  IMAGES.forEach((im,idx)=>{
+    const near = im.t? nearestSpectra(im.t) : null;
+    const z = zoneFor(near?near.row.nir:null, zones);
+    const cell=document.createElement('div');
+    cell.style.cssText=`cursor:pointer; border:2px solid ${z.col}; border-radius:6px; overflow:hidden; background:#000;`;
+    cell.title=`${im.name}\n${im.t?im.t.toLocaleString():'no timestamp'} \u2014 ${z.txt}`;
+    cell.innerHTML=`<img src="${im.url}" style="width:100%; height:80px; object-fit:cover; display:block;" loading="lazy" />`+
+      `<div class="mono" style="font-size:9px; color:var(--txt-dim); padding:3px 4px; text-align:center;">${im.t?im.t.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}):'?'} </div>`;
+    cell.onclick=()=>{ slider.value=String(idx); showAt(idx); window.scrollTo({top:0,behavior:'smooth'}); };
+    strip.appendChild(cell);
+  });
+}
+const RENDERERS={ overview:renderOverview, temphum:renderTempHum, gas:renderGas, compare:renderCompare, quality:renderQuality, spectral:renderSpectral, nirlabel:renderNirLabel, images:renderImages };
+let activeTab='overview';
+function showTab(name){
+  activeTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.panel-page').forEach(p=>p.classList.toggle('active', p.id===`page-${name}`));
+  // Pin x-axis to the data this tab actually plots, so the time axis has no empty margins.
+  const spectralTabs = new Set(['spectral','nirlabel','images']);
+  if(spectralTabs.has(name)) setXSpan(SPECTRA);
+  else setXSpan(SENSOR);
+  requestAnimationFrame(()=>{
+    try { RENDERERS[name](); }
+    catch(err){ console.error('Render failed for tab', name, err); }
+  });
+}
+$('tabNav').addEventListener('click', e=>{ const t=e.target.closest('.tab'); if(t) showTab(t.dataset.tab); });
+function refreshActive(){ renderKPIs(); RENDERERS[activeTab](); }
+$('fileInput').addEventListener('change', (e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  Papa.parse(file, {
+    header:true, dynamicTyping:true, skipEmptyLines:true,
+    complete:(res)=>{
+      const headers=res.meta.fields||[];
+      if(looksSpectral(headers)){
+        SPECTRA=ingestSpectraCSV(res.data, headers);
+        $('sourcePill').innerHTML=`source: <b>${file.name}</b> (multispectral)`;
+        showTab('spectral');
+      } else {
+        const {rows,map}=ingestSensorCSV(res.data, headers);
+        SENSOR=rows;
+        const found=[]; for(const nd of ['n1','n2','ref']){ const k=Object.keys(map[nd]); if(k.length) found.push(`${nd}:${k.length}`); }
+        $('sourcePill').innerHTML=`source: <b>${file.name}</b> (sensor, matched ${found.join(' ')})`;
+        showTab('overview');
+      }
+      refreshActive();
+    },
+    error:(err)=>{ alert('CSV parse failed: '+err.message); }
+  });
+  e.target.value='';
+});
+$('imgInput').addEventListener('change', (e)=>{
+  const files=[...e.target.files]; if(!files.length) return;
+  // Append to whatever is already loaded. De-dupe on name+size so re-picking the
+  // same file (or overlapping folders) doesn't create duplicates.
+  const seen = new Set(IMAGES.map(im=>im.key));
+  let added=0;
+  for(const f of files){
+    const key = f.name + ':' + f.size;
+    if(seen.has(key)) continue;          // skip already-loaded file
+    seen.add(key);
+    IMAGES.push({ key, name:f.name, t:parseImageTime(f.name), url:URL.createObjectURL(f) });
+    added++;
+  }
+  // keep the combined set in time order; undated images go to the end
+  IMAGES.sort((a,b)=>{ if(a.t&&b.t) return a.t-b.t; if(a.t) return -1; if(b.t) return 1; return 0; });
+  const dated=IMAGES.filter(im=>im.t).length;
+  const dupSkipped = files.length - added;
+  $('sourcePill').innerHTML=`source: <b>${SPECTRA.length?'multispectral':'sample'}</b> + ${IMAGES.length} images (${dated} dated${dupSkipped?`, ${dupSkipped} dup skipped`:''})`;
+  e.target.value=''; // let the same file(s) be re-picked later if needed
+  showTab('images');
+});
+$('clearImgBtn').addEventListener('click', ()=>{
+  // revoke blob URLs so the browser frees the image memory
+  IMAGES.forEach(im=>{ try{ URL.revokeObjectURL(im.url); }catch(_){} });
+  IMAGES = [];
+  $('imgViewer').src = '';
+  // reset the source pill to drop the image count
+  $('sourcePill').innerHTML = `source: <b>${SPECTRA.length?'multispectral':'sample'}</b>`;
+  // re-render the tab so it shows the empty-state prompt again
+  if(activeTab==='images') renderImages();
+});
+$('resetBtn').addEventListener('click', ()=>{ SENSOR=buildSampleSensor(); SPECTRA=buildSampleSpectra(); $('sourcePill').innerHTML='source: <b>built-in sample</b>'; showTab('overview'); refreshActive(); });
+SENSOR=buildSampleSensor();
+SPECTRA=buildSampleSpectra();
+if (typeof Chart === 'undefined') {
+  document.querySelector('main').innerHTML =
+    '<div class="callout flag-list" style="margin:20px 0;"><b>Chart library failed to load.</b><br>' +
+    'The dashboard needs Chart.js from a CDN. Your network or viewer may be blocking it. ' +
+    'Try opening this file in a normal browser with internet access, or whitelist cdnjs.cloudflare.com.</div>';
+} else {
+  showTab('overview');
+}
+function exportCardAsPng(card, filename) {
+  const btn = card.querySelector('.export-btn');
+  if (btn) btn.style.opacity = '0';
+  const source = document.getElementById('sourcePill')?.textContent?.trim() || '';
+  html2canvas(card, {
+    backgroundColor: '#161b22',
+    scale: 2,
+    useCORS: true,
+    logging: false,
+  }).then(canvas => {
+    if (btn) btn.style.opacity = '';
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'chart.png'; a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }).catch(() => { if (btn) btn.style.opacity = ''; });
+}
+function addExportButtons() {
+  document.querySelectorAll('.card').forEach(card => {
+    if (!card.querySelector('canvas')) return;
+    const btn = document.createElement('button');
+    btn.className = 'export-btn'; btn.textContent = '↓ PNG'; btn.title = 'Export chart as PNG';
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const canvas = card.querySelector('canvas');
+      const name = (canvas ? canvas.id : 'chart') || 'chart';
+      exportCardAsPng(card, name + '.png');
+    });
+    card.appendChild(btn);
+  });
+}
+addExportButtons();
+</script>
+</body>
+</html>
