@@ -1,4 +1,4 @@
-# NIR Pipeline — Design Decisions
+# NIR Pipeline Design Decisions
 
 Key decisions made when building the NIR 3-class labelling pipeline.
 
