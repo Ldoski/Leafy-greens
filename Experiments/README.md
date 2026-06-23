@@ -6,7 +6,7 @@ This folder contains two analysis notebooks and the ground test dataset.
 |---|---|
 | `experiment_analysis.ipynb` | Publication figures for the freshness detection system (NIR, spoilage markers, spectral channels) |
 | `test_analysis.ipynb` | AS7341 sensor ground test analysis (5 environmental conditions) |
-| `ground_test/` | Ground test CSV data — 5 conditions, 11 readings each |
+| `ground_test/` | Ground test CSV data 5 conditions, 11 readings each |
 | `Ground_Test_Protocol_v3.pdf` | Protocol document for the ground tests |
 
 ---
@@ -25,23 +25,23 @@ This is separate from `Code/Analysis/batch_analysis.ipynb`, which covers pipelin
 |---|---|---|
 | **S1** | `S1_nir_batch{N}.png/pdf/svg` | NIR 855 nm over time per batch, with Fresh/Aging/Degraded zone shading |
 | **S1b** | `S1b_nir_grid_all_batches.*` | All 4 batches in a 2×2 grid for side-by-side comparison |
-| **S1c** | `S1c_nir_spoilage_marker.*` | NIR vs visual spoilage threshold — the key early-detection result. Shows how many hours before or after visual inspection the sensor crossed into Degraded |
+| **S1c** | `S1c_nir_spoilage_marker.*` | NIR vs visual spoilage threshold the key early-detection result. Shows how many hours before or after visual inspection the sensor crossed into Degraded |
 | **S2** | `S2_nir_all_batches.*` | All batches overlaid on raw time axis |
 | **S3** | `S3_nir_normalised.*` | All batches overlaid on normalised time axis (0–100% of run) |
 | **S4** | `S4_channels_batch{N}.*` | All spectral channels (555–855 nm) over time per batch on one axis |
 | **S5** | `S5_grid_batch{N}.*` | 2×3 subplot grid per batch, one channel per plot with CV annotation |
 | **S6** | `S6_gas_batch{N}.*` | TVOC, eCO2, and MQ3 over time per batch |
-| **S7** | `S7_temp_hum_batch{N}.*` | Temperature and humidity per batch — verifies stable conditions |
-| **S8** | `S8_nir_tvoc_batch{N}.*` | NIR and TVOC on dual y-axes — checks whether gas and optical signals track together |
+| **S7** | `S7_temp_hum_batch{N}.*` | Temperature and humidity per batch verifies stable conditions |
+| **S8** | `S8_nir_tvoc_batch{N}.*` | NIR and TVOC on dual y-axes checks whether gas and optical signals track together |
 | **S9** | *(table only)* | Summary statistics per spectral channel per batch (mean, SD, CV%, range) |
 
 All figures are saved to `plots/spinach/`.
 
 ---
 
-## Key Result — S1c
+## Key Result S1c
 
-Section S1c is the headline figure. It overlays the visual spoilage timestamp (from timelapse review) on the NIR time-series for each batch and annotates how many hours the sensor led or lagged visual inspection. Run the notebook to see the computed values — the lead/lag depends on the NIR threshold crossing point which varies with smoothing method.
+Section S1c is the headline figure. It overlays the visual spoilage timestamp (from timelapse review) on the NIR time-series for each batch and annotates how many hours the sensor led or lagged visual inspection. Run the notebook to see the computed values the lead/lag depends on the NIR threshold crossing point which varies with smoothing method.
 
 Batch 5 is the only batch where the sensor detected spoilage before visual inspection. The Batch 5 visual spoilage timestamp is estimated (no timelapse images were captured for that batch; value is the average ratio from Batches 1, 3, 4).
 
@@ -49,7 +49,7 @@ Batch 5 is the only batch where the sensor detected spoilage before visual inspe
 
 ## NIR Zone Boundaries
 
-Zones are computed per batch as simple quantile tertiles (no rolling smooth, no direction detection — simpler than `batch_analysis.ipynb` which mirrors the pipeline exactly).
+Zones are computed per batch as simple quantile tertiles (no rolling smooth, no direction detection simpler than `batch_analysis.ipynb` which mirrors the pipeline exactly).
 
 | Batch | Fresh | Aging | Degraded |
 |---|---|---|---|
