@@ -98,7 +98,7 @@ Input data lives in `sensor_data/project2_data/Lidl_batches/` (not committed —
 | Overall accuracy | 67.8% (215 / 317) |
 | Inference time | 74.7 µs |
 
-Per-class: Fresh 75.9%, Aging 1.5%, Degraded 100.0%. Aging class collapse is a labeling boundary issue, not a framework issue — confirmed present in both AIfES and TFLite Micro.
+Per-class: Fresh 75.9%, Aging 1.5%, Degraded 100.0%. Aging class collapse is a labeling boundary issue, not a framework issue confirmed present in both AIfES and TFLite Micro.
 
 ### TinyOL On-Device Fine-Tuning (EXP-011)
 
